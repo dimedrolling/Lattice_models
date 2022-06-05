@@ -35,8 +35,6 @@ def get_neighbours(shape, x, y):
     return neighbours
 
 
-
-
 def new_params_b(b):
     global db
     global b_Max
@@ -53,17 +51,17 @@ def cooling_b(b):
     return b + db
 
 
-size = 32
+size = 64
 
-b = 2
+b = 0.1
 db = .005
-b_Max = 3
+b_Max = 2
 N_iter = 1000
 
-regime = 0  # 0 - time evolution from rand state , 1 - hysteresis, 2 - cooling
-mode = 0  # 0 - classical, 1 - boson
+regime = 1  # 0 - time evolution from rand state , 1 - hysteresis, 2 - cooling
+mode = 0  # 0 - classical, 1 - boson, 2 - merging
 
-state = random_state_alpha(size, size, 0.7)
+state = random_state_alpha(size, size, 0.9)
 
 
 # state[10:15, 10:50] = -1
@@ -142,7 +140,7 @@ def new_state_coupling(array):
                 aux_neighbours = get_neighbours(array.shape, xn, yn)
                 buf = 0
                 for aux_x, aux_y in aux_neighbours:
-                    if array[aux_x, aux_y] == 1:
+                    if array[aux_x, aux_y] >= 1:
                         buf += 1
                 probabilities.append(buf)
             if nonzero_neigh != len(neighbours):
@@ -165,15 +163,60 @@ def new_state_coupling(array):
     return array, [neig_pos / iter_pos / len(get_neighbours(array.shape, 0, 0))]
 
 
+def new_state_merging(array):
+    neig_pos = 0
+    iter_pos = 1
+    for k in range(N_iter):
+        x = np.random.randint(array.shape[0])
+        y = np.random.randint(array.shape[1])
+        cell = array[x][y]
+        if cell >= 1:
+            iter_pos += 1
+            neighbours = get_neighbours(array.shape, x, y)
+            closest = []
+            probabilities = []
+            nonzero_neigh = 0
+            for xn, yn in neighbours:
+                closest.append(xn + array.shape[0] * yn)
+
+                if array[xn, yn] < 0:
+                    closest.pop(-1)
+                    continue
+                aux_neighbours = get_neighbours(array.shape, xn, yn)
+                buf = 0
+                for aux_x, aux_y in aux_neighbours:
+                    if array[aux_x, aux_y] >= 1:
+                        buf += 1
+                if array[xn, yn] >= 1:
+                    buf -= 1
+                    neig_pos += 1
+                probabilities.append(buf)
+            if nonzero_neigh != len(neighbours):
+                closest.append(x + array.shape[0] * y)
+                probabilities.append(nonzero_neigh)
+            neig_pos += nonzero_neigh
+            probabilities = np.asarray(probabilities) * b
+            probabilities = np.exp(probabilities)
+            probabilities = np.true_divide(probabilities, np.sum(probabilities))
+            target = np.random.choice(closest, p=probabilities)
+            x_target = target % array.shape[0]
+            y_target = target // array.shape[0]
+
+            array[x, y] -= 1
+            array[x_target, y_target] += 1
+
+    return array, [neig_pos / iter_pos / len(get_neighbours(array.shape, 0, 0))]
+
+
 fig, (ax1, ax2) = plt.subplots(2, 1)
 
 StateMax = np.max(state)
-if mode == 1:
+if mode != 0:
     im = ax1.imshow(state, animated=True, vmin=min(np.min(state), -1), vmax=10, cmap='plasma')
 if mode == 0:
     im = ax1.imshow(state, animated=True, vmin=min(np.min(state), -1), vmax=1, cmap='PuBu')
 line1, = ax2.plot([], [], lw=2, label="Mean num of neighbours")
-if mode == 1:
+if mode != 0:
     line2, = ax2.plot([], [], lw=2, label="Num of cells")
 
 ax2.set_ylim(-1, 1)
@@ -212,10 +255,12 @@ def animate(i):
         state, counts = new_state(state)
     if mode == 1:
         state, counts = new_state_coupling(state)
+    if mode == 2:
+        state, counts = new_state_merging(state)
 
     xdata.append(x_axes)
     ydata1.append(counts)
-    if mode == 1:
+    if mode != 0:
         ydata2.append(np.count_nonzero(state) / (np.size(state)))
     im.set_array(state)
 
@@ -245,7 +290,7 @@ def animate(i):
     if regime == 0 and mode == 1:
         line2.set_data(xdata, ydata2)
 
-    if mode == 1:
+    if mode != 0:
         return [line1, line2, im]
     return [line1, im]
 

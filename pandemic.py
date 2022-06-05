@@ -21,22 +21,18 @@ def delta_state(width, height, mx):
 
 
 def get_neighbours(shape, x, y):
-    neighbours = []
-    if x + 1 < shape[0]:
-        neighbours.append([x + 1, y])
-    if x - 1 >= 0:
-        neighbours.append([x - 1, y])
-    if y - 1 >= 0:
-        neighbours.append([x, y - 1])
-    if y + 1 < shape[1]:
-        neighbours.append([x, y + 1])
-
+    neighbours = [
+        # [(x + 1) % shape[0], y], [(x - 1) % shape[0], y],
+        [x, (y - 1) % shape[1]], [x, (y + 1) % shape[1]],
+        [(x + 1) % shape[0], (y + 1) % shape[1]], [(x - 1) % shape[0], (y - 1) % shape[1]],
+        [(x + 1) % shape[0], (y - 1) % shape[1]], [(x - 1) % shape[0], (y + 1) % shape[1]]
+    ]
     return neighbours
 
 
-prob = 0.1
+prob = 0.5
 immune_step = 1
-contagious_rate = 0.9
+contagious_rate = 1
 high_ill = 100
 size = 256
 
@@ -68,6 +64,7 @@ def new_state(array):
 
 
 state = delta_state(size, size, high_ill)
+# state[0,0] = high_ill
 
 fig, (ax1, ax2) = plt.subplots(2, 1)
 
